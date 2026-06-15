@@ -5,7 +5,11 @@
         <SolutionPackagerWorkingDirectory Condition="'$(SolutionPackagerWorkingDirectory)' == ''">$(IntermediateOutputPath)</SolutionPackagerWorkingDirectory>
         <SolutionPackagerMetadataWorkingDirectory Condition="'$(SolutionPackagerMetadataWorkingDirectory)' == ''">$(SolutionPackagerWorkingDirectory)Metadata</SolutionPackagerMetadataWorkingDirectory>
         <SolutionPackageLogFilePath Condition="'$(SolutionPackageLogFilePath)' == ''">$(IntermediateOutputPath)SolutionPackager.log</SolutionPackageLogFilePath>
-        <SolutionPackageZipFilePath Condition="'$(SolutionPackageZipFilePath)' == ''">$(OutputPath)$(MSBuildProjectName).zip</SolutionPackageZipFilePath>
+        <!-- Set the zip file name.
+             Avoids the $(OutputPath)-is-empty footgun of overriding SolutionPackageZipFilePath in the csproj body. -->
+        <SolutionZipFileName Condition="'$(SolutionZipFileName)' == ''">$(MSBuildProjectName).zip</SolutionZipFileName>
+        <SolutionZipFileName Condition="'$(SolutionZipFileName)' != '' and !$([System.String]::Copy('$(SolutionZipFileName)').EndsWith('.zip'))">$(SolutionZipFileName).zip</SolutionZipFileName>
+        <SolutionPackageZipFilePath Condition="'$(SolutionPackageZipFilePath)' == ''">$(OutputPath)$(SolutionZipFileName)</SolutionPackageZipFilePath>
 
         <!-- Package type: Unmanaged for Debug, Managed otherwise. Can be overridden explicitly. -->
         <SolutionPackageType Condition="'$(SolutionPackageType)' == '' And '$(Configuration)' == 'Debug'">Unmanaged</SolutionPackageType>
