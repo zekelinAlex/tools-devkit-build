@@ -44,6 +44,7 @@ public class GenerateGitVersion : Task
         {
             Log.LogMessage(MessageImportance.High, "Git repository not found; skipping automatic Git versioning.");
             VersionOutput = LocalBuildVersionNumber;
+            LastCommitDateTimeOutput = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
             return true;
         }
 
@@ -317,28 +318,46 @@ public class GenerateGitVersion : Task
     {
         if (!string.IsNullOrEmpty(IsRunningInCI))
         {
-            var result = string.Equals(IsRunningInCI, "true", StringComparison.OrdinalIgnoreCase);
-            Log.LogMessage(MessageImportance.High, $"IsRunningInCI overridden to: {result}");
-            return result;
+            if (bool.TryParse(IsRunningInCI, out var overrideValue))
+            {
+                Log.LogMessage(MessageImportance.High, $"IsRunningInCI overridden to: {overrideValue}");
+                return overrideValue;
+            }
+            Log.LogWarning($"IsRunningInCI value '{IsRunningInCI}' is not a valid boolean; falling back to auto-detection.");
         }
 
-        var ciVars = new[]
+        // Boolean-style vars: only treat explicit "true" as CI
+        var booleanCiVars = new[]
         {
             "CI",             // Generic (GitHub Actions, GitLab, Travis, CircleCI, etc.)
             "TF_BUILD",       // Azure DevOps
             "GITHUB_ACTIONS", // GitHub Actions
             "GITLAB_CI",      // GitLab CI
-            "JENKINS_URL",    // Jenkins
             "CIRCLECI",       // CircleCI
+        };
+
+        foreach (var varName in booleanCiVars)
+        {
+            var value = Environment.GetEnvironmentVariable(varName);
+            if (bool.TryParse(value, out var boolValue) && boolValue)
+            {
+                Log.LogMessage(MessageImportance.High, $"CI environment detected via {varName}");
+                return true;
+            }
+        }
+
+        // Non-boolean vars: any non-empty value indicates CI
+        var presenceCiVars = new[]
+        {
+            "JENKINS_URL",     // Jenkins
             "TEAMCITY_VERSION" // TeamCity
         };
 
-        foreach (var varName in ciVars)
+        foreach (var varName in presenceCiVars)
         {
-            var value = Environment.GetEnvironmentVariable(varName);
-            if (!string.IsNullOrEmpty(value))
+            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable(varName)))
             {
-                Log.LogMessage(MessageImportance.High, $"CI environment detected via {varName}={value}");
+                Log.LogMessage(MessageImportance.High, $"CI environment detected via {varName}");
                 return true;
             }
         }
