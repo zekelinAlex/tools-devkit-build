@@ -24,7 +24,8 @@ public class GenerateGitVersion : Task
     [Required]
     public string Version { get; set; }
     public string GitVersionNumberBranches { get; set; } // template "master;hotfix;develop:1;pr:3;other:0"
-    public string GitVersionNumberFallback { get; set; }
+    public string LocalBuildVersionNumber { get; set; }
+    public string IsRunningInCI { get; set; }
     public string GitVersionBranch { get; set; }
 
     [Output]
@@ -38,17 +39,20 @@ public class GenerateGitVersion : Task
     {
         Log.LogMessage(MessageImportance.High, "Preparing to generate version number...");
 
-        if (GitVersionNumberFallback == null)
-        {
-            Log.LogWarning("GitVersionNumberFallback is null, setting to default.");
-            GitVersionNumberFallback = "0.0.20000.0";
-        }
-
         // Ensure repository is connected to Git before running commands
         if (!TryFindGitRoot(ProjectPath, out var gitRoot))
         {
             Log.LogMessage(MessageImportance.High, "Git repository not found; skipping automatic Git versioning.");
-            VersionOutput = GitVersionNumberFallback;
+            VersionOutput = LocalBuildVersionNumber;
+            LastCommitDateTimeOutput = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
+            return true;
+        }
+
+        if (!DetectIsRunningInCI())
+        {
+            Log.LogMessage(MessageImportance.High, "Not running in CI; using LocalBuildVersionNumber.");
+            VersionOutput = LocalBuildVersionNumber;
+            LastCommitDateTimeOutput = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
             return true;
         }
 
@@ -87,7 +91,7 @@ public class GenerateGitVersion : Task
             if (branch == null)
             {
                 Log.LogWarning($"The current branch '{currentBranch}' is not enabled for automatic Git versioning.");
-                VersionOutput = GitVersionNumberFallback;
+                VersionOutput = LocalBuildVersionNumber;
                 LastCommitDateTimeOutput = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
                 return true;
             }
@@ -147,7 +151,7 @@ public class GenerateGitVersion : Task
         catch (Exception ex)
         {
             Log.LogMessage(MessageImportance.High, $"Git versioning skipped: {ex.Message}");
-            VersionOutput = GitVersionNumberFallback;
+            VersionOutput = LocalBuildVersionNumber;
             LastCommitDateTimeOutput = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
             return true;
         }
@@ -308,6 +312,57 @@ public class GenerateGitVersion : Task
             directory = directory.Parent;
         }
         gitRoot = null;
+        return false;
+    }
+    private bool DetectIsRunningInCI()
+    {
+        if (!string.IsNullOrEmpty(IsRunningInCI))
+        {
+            if (bool.TryParse(IsRunningInCI, out var overrideValue))
+            {
+                Log.LogMessage(MessageImportance.High, $"IsRunningInCI overridden to: {overrideValue}");
+                return overrideValue;
+            }
+            Log.LogWarning($"IsRunningInCI value '{IsRunningInCI}' is not a valid boolean; falling back to auto-detection.");
+        }
+
+        // Boolean-style vars: only treat explicit "true" as CI
+        var booleanCiVars = new[]
+        {
+            "CI",             // Generic (GitHub Actions, GitLab, Travis, CircleCI, etc.)
+            "TF_BUILD",       // Azure DevOps
+            "GITHUB_ACTIONS", // GitHub Actions
+            "GITLAB_CI",      // GitLab CI
+            "CIRCLECI",       // CircleCI
+        };
+
+        foreach (var varName in booleanCiVars)
+        {
+            var value = Environment.GetEnvironmentVariable(varName);
+            if (bool.TryParse(value, out var boolValue) && boolValue)
+            {
+                Log.LogMessage(MessageImportance.High, $"CI environment detected via {varName}");
+                return true;
+            }
+        }
+
+        // Non-boolean vars: any non-empty value indicates CI
+        var presenceCiVars = new[]
+        {
+            "JENKINS_URL",     // Jenkins
+            "TEAMCITY_VERSION" // TeamCity
+        };
+
+        foreach (var varName in presenceCiVars)
+        {
+            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable(varName)))
+            {
+                Log.LogMessage(MessageImportance.High, $"CI environment detected via {varName}");
+                return true;
+            }
+        }
+
+        Log.LogMessage(MessageImportance.High, "No CI environment detected; treating as local build.");
         return false;
     }
     private void RetrieveAllProjectReferences(string projectPath, List<string> projects)
