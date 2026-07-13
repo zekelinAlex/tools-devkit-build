@@ -1,6 +1,6 @@
 # TALXIS.DevKit.Build.Dataverse.PdPackage
 
-MSBuild integration for Power Platform Package Deployer (PD) packages. Wraps `Microsoft.PowerApps.MSBuild.PDPackage`, adds ILRepack-based assembly merging for the deployment package DLL, and provides Configuration Migration Tool (CMT) package discovery, metadata merging, and zipping.
+MSBuild integration for Power Platform Package Deployer (PD) packages. Wraps `Microsoft.PowerApps.MSBuild.PDPackage` and provides Configuration Migration Tool (CMT) package discovery, metadata merging, and zipping.
 
 ## Installation
 
@@ -46,10 +46,6 @@ The generated entries appear in the **same order as the references are declared 
 
 If you ship a hand-written `PkgAssets/ImportConfig.xml` with explicit `<configsolutionfile>` entries, auto-generation is skipped entirely and your file is used as-is.
 
-### Assembly merge
-
-`AssemblyMergeDependencies` (runs after `Build` via `_AssemblyMergePackageDependenciesAfterBuild`) merges dependency DLLs into the main output assembly using the shared ILRepack engine from `TALXIS.DevKit.Build.Dataverse.Tasks`. PdPackage defaults to a different exclude list than Plugin/WorkflowActivity — `Newtonsoft.Json` is **not** excluded because the package-deployer runtime doesn't provide it. Can be disabled with `<AssemblyMergeSkip>true</AssemblyMergeSkip>`.
-
 ### CMT package discovery
 
 `DiscoverCmtPackages` scans for folders containing `[Content_Types].xml` with sibling `data.xml` and `data_schema.xml`. Supports include/exclude filtering via `IncludedCmtPackages`/`ExcludedCmtPackages`.
@@ -76,13 +72,6 @@ If you ship a hand-written `PkgAssets/ImportConfig.xml` with explicit `<configso
 | `PdPackageTargetFileName` | `$(PackageId).pdpkg.zip` | Name of the produced `.pdpkg.zip`.`$(PackageId)` falls back PackageId → AssemblyName → `.csproj` name. |
 | `GeneratePdPackageOnBuild` | `true` | Runs `GeneratePdPackage` after publish. |
 | `GeneratePackageOnPublish` | `true` | Triggers NuGet pack after `dotnet publish` to produce a `.nupkg` containing the `.pdpkg.zip`. |
-
-### Assembly merge
-
-| Property | Default | Description |
-|----------|---------|-------------|
-| `AssemblyMergeSkip` | _(unset)_ | When `true`, skips the post-build `AssemblyMergeDependencies` ILRepack step. |
-| `AssemblyMergeExcludes` | `mscorlib;netstandard;Microsoft.Xrm.Sdk;Microsoft.Crm.Sdk.Proxy` | Semicolon-separated assembly filenames (without `.dll`) to exclude from merging. Note: PdPackage does **not** exclude `Newtonsoft.Json` by default (unlike Plugin/WorkflowActivity) because the package-deployer runtime doesn't provide it. Prefix patterns `Microsoft.Xrm.Sdk.*` and `System.*` are always excluded. |
 
 ### Validation
 
@@ -115,7 +104,7 @@ If you ship a hand-written `PkgAssets/ImportConfig.xml` with explicit `<configso
 
 ## Related Packages
 
-- **Depends on**: `Microsoft.PowerApps.MSBuild.PDPackage`, `ILRepack.Lib.MSBuild.Task`, `TALXIS.DevKit.Build.Dataverse.Tasks`
+- **Depends on**: `Microsoft.PowerApps.MSBuild.PDPackage`, `TALXIS.DevKit.Build.Dataverse.Tasks`
 - **Typically references**: `TALXIS.DevKit.Build.Dataverse.Solution` projects
 
 
