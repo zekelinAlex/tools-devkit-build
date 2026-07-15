@@ -23,10 +23,23 @@
     <Exec Command="npm install" WorkingDirectory="$(MSBuildProjectDirectory)" />
   </Target>
 
-  <!-- Runs before BeforeBuild (after NpmInstall); generates and applies the PCF version number. -->
+  <!-- Generates and applies the PCF version number. -->
   <Target Name="_ApplyPcfVersionBeforeBuild" BeforeTargets="BeforeBuild" DependsOnTargets="NpmInstall">
     <CallTarget Targets="GenerateVersionNumber"/>
     <CallTarget Targets="ApplyPcfVersionNumber"/>
+  </Target>
+
+  <!-- PCF projects are JavaScript/TypeScript controls, not .NET assemblies - there is nothing
+       meaningful to publish as a NuGet package. They are consumed via <ProjectReference> from a
+       Solution project, which builds and stages the control directly into the solution. Only
+       Solution and PDPackage projects produce NuGet packages. Hooking into BeforePack (rather
+       than BeforeTargets="Pack") fails before any nuspec/nupkg work starts. -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <BeforePack>$(BeforePack);_ErrorOnPcfPack</BeforePack>
+  </PropertyGroup>
+  <Target Name="_ErrorOnPcfPack">
+    <Error Text="PCF projects cannot be packed as a standalone NuGet package. Reference this project from a Solution project via ProjectReference instead - only Solution and PDPackage projects produce NuGet packages." />
   </Target>
 
 

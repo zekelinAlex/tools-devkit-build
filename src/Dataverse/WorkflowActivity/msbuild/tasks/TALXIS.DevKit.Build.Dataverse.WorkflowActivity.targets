@@ -3,7 +3,7 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(PowerAppsTargetsPath)\Microsoft.PowerApps.VisualStudio.WorkflowActivity.targets" Condition="Exists('$(PowerAppsTargetsPath)\Microsoft.PowerApps.VisualStudio.WorkflowActivity.targets')" />
 
-  <!-- Runs before BeforeBuild; generates and applies the workflow activity version number. -->
+  <!-- Generates and applies the workflow activity version number. -->
   <Target Name="_ApplyWorkflowActivityVersionBeforeBuild" BeforeTargets="BeforeBuild">
     <CallTarget Targets="GenerateVersionNumber"/>
     <CallTarget Targets="ApplyPluginVersionNumber"/>
@@ -15,6 +15,19 @@
         <ProjectType>$(ProjectType)</ProjectType>
       </_ProjectType>
     </ItemGroup>
+  </Target>
+
+  <!-- Workflow activity projects are not published as standalone NuGet packages - they are
+       consumed via <ProjectReference> from a Solution project, which stages the built assembly
+       directly into the solution. Only Solution and PDPackage projects produce NuGet packages.
+       Hooking into BeforePack (rather than BeforeTargets="Pack") fails before any nuspec/nupkg
+       work starts. -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <BeforePack>$(BeforePack);_ErrorOnWorkflowActivityPack</BeforePack>
+  </PropertyGroup>
+  <Target Name="_ErrorOnWorkflowActivityPack">
+    <Error Text="WorkflowActivity projects cannot be packed as a standalone NuGet package. Reference this project from a Solution project via ProjectReference instead - only Solution and PDPackage projects produce NuGet packages." />
   </Target>
 
   <!-- ILRepack assembly-merge configuration.
