@@ -48,9 +48,14 @@
         MetadataWorkingDirectory="$(SolutionPackagerMetadataWorkingDirectory)" />
   </Target>
   
-<!-- XSD schema validation of solution components. Not wired automatically.
-       Invoke explicitly: dotnet msbuild -t:InitializeSolutionPackagerWorkingDirectory;ValidateSolutionComponentSchema
-       The actual validation logic is defined in the Tasks package (ValidateSolutionComponentSchema.targets). -->
+  <!-- Runs after ProcessCds / before PowerAppsPackage; validates solution component files against
+       the embedded XSD/JSON schemas (ValidateSolutionComponentSchema from the Tasks package).
+       Opt out: set SkipSchemaValidation=true. -->
+  <Target Name="_ValidateSolutionComponentSchemaBeforePackage"
+          AfterTargets="ProcessCdsProjectReferencesOutputs"
+          BeforeTargets="PowerAppsPackage"
+          DependsOnTargets="ValidateSolutionComponentSchema"
+          Condition="'$(SkipSchemaValidation)' != 'true' and Exists('$(SolutionPackagerMetadataWorkingDirectory)\Other\Solution.xml')" />
 
   <!-- Runs after ProcessCds / before PowerAppsPackage; validates no duplicate GUIDs.
        Opt out: set SkipDuplicateGuidValidation=true. -->
